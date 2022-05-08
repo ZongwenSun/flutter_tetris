@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 
 class GameState extends ChangeNotifier {
   GameConfig config;
-  List<Square> fixedSquares = [];
+  // List<Square> fixedSquares = [];
+  late List<List<Square?>> squares;
 
   Mino? currentMino;
 
   GameState(this.config) {
+    squares = List.generate(config.row, (index) => List.filled(config.col, null));
     currentMino = Mino.random();
     start();
   }
@@ -23,6 +25,7 @@ class GameState extends ChangeNotifier {
         } else {
           if (allowMino(currentMino!)) {
             addMino(currentMino!);
+            check(currentMino!.squares);
             currentMino = Mino.random();
           } else {
             currentMino = null;
@@ -58,12 +61,34 @@ class GameState extends ChangeNotifier {
     if (!inRange) {
       return false;
     }
-    bool alreadyExist = fixedSquares.any((e) => e.row == square.row && e.col == square.col);
-    return !alreadyExist;
+    return squares[square.row][square.col] == null;
   }
 
   void addMino(Mino mino) {
-    fixedSquares.addAll(mino.squares);
+    for (var square in mino.squares) {
+      squares[square.row][square.col] = square;
+    }
+  }
+
+  void check(List<Square> newSquares) {
+    int newTopRow = config.row - 1;
+    for (int row = config.row - 1; row >= 0; row--) {
+      bool isFull = true;
+      for (int col = 0; col < config.col; col++) {
+        if (squares[row][col] == null) {
+          isFull = false;
+          break;
+        }
+      }
+      if (!isFull) {
+        squares[newTopRow] = squares[row];
+        newTopRow--;
+      }
+    }
+
+    for (int i = newTopRow - 1; i >= 0; i--) {
+      squares[i] = List.filled(config.col, null);
+    }
   }
 }
 

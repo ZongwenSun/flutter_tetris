@@ -82,12 +82,14 @@ class BoardPainter extends CustomPainter {
       ..color = Colors.blue
       ..style = PaintingStyle.fill;
 
-    for (Square square in gameState.fixedSquares) {
-      int row = square.row;
-      int col = square.col;
-      double left = col * (squareSize + lineWidth);
-      double top = row * (squareSize + lineWidth);
-      canvas.drawRect(Rect.fromLTWH(left, top, squareSize, squareSize), squarePaint);
+    for (int row = 0; row < gameState.squares.length; row++) {
+      for (int col = 0; col < gameState.squares[row].length; col++) {
+        if (gameState.squares[row][col] != null) {
+          double left = col * (squareSize + lineWidth);
+          double top = row * (squareSize + lineWidth);
+          canvas.drawRect(Rect.fromLTWH(left, top, squareSize, squareSize), squarePaint);
+        }
+      }
     }
 
     if (gameState.currentMino != null) {

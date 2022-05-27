@@ -5,28 +5,33 @@ import 'package:flutter/material.dart';
 
 class GameState extends ChangeNotifier {
   GameConfig config;
-  // List<Square> fixedSquares = [];
-  late List<List<Square?>> squares;
+  late List<List<SquareImage?>> squares;
 
   Mino? currentMino;
 
+  late int bornX;
+  late int bornY;
+
   GameState(this.config) {
     squares = List.generate(config.row, (index) => List.filled(config.col, null));
-    currentMino = Mino.random();
+
+    bornX = config.col ~/ 2 - 2;
+    bornY = config.row - 4;
+    currentMino = Mino.random(bornX, bornY);
     start();
   }
 
   void start() {
     Timer.periodic(const Duration(seconds: 1), (timer) {
       if (currentMino != null) {
-        Mino downMino = currentMino!.down();
+        Mino downMino = currentMino!.clone()..down();
         if (allowMino(downMino)) {
           currentMino = downMino;
         } else {
           if (allowMino(currentMino!)) {
             addMino(currentMino!);
             check(currentMino!.squares);
-            currentMino = Mino.random();
+            currentMino = Mino.random(bornX, bornY);
           } else {
             currentMino = null;
           }
@@ -37,7 +42,10 @@ class GameState extends ChangeNotifier {
   }
 
   void onPressLeft() {
-    Mino nextMino = currentMino!.left();
+    if (currentMino == null) {
+      return;
+    }
+    Mino nextMino = currentMino!.clone()..left();
     if (allowMino(nextMino)) {
       currentMino = nextMino;
       notifyListeners();
@@ -45,11 +53,36 @@ class GameState extends ChangeNotifier {
   }
 
   void onPressRight() {
-    Mino nextMino = currentMino!.right();
+    if (currentMino == null) {
+      return;
+    }
+    Mino nextMino = currentMino!.clone()..right();
     if (allowMino(nextMino)) {
       currentMino = nextMino;
       notifyListeners();
     }
+  }
+
+  void rotateLeft() {
+    if (currentMino != null) {
+      currentMino!.rotateLeft();
+      notifyListeners();
+    }
+  }
+
+  void dropDown() {
+    if (currentMino == null) {
+      return;
+    }
+    do {
+      Mino bottomMino = currentMino!.clone()..down();
+      if (allowMino(bottomMino)) {
+        currentMino = bottomMino;
+      } else {
+        break;
+      }
+    } while (true);
+    notifyListeners();
   }
 
   bool allowMino(Mino mino) {
@@ -57,22 +90,22 @@ class GameState extends ChangeNotifier {
   }
 
   bool allowSquare(Square square) {
-    bool inRange = square.col >= 0 && square.col < config.col && square.row >= 0 && square.row < config.row;
+    bool inRange = square.x >= 0 && square.x < config.col && square.y >= 0 && square.y < config.row;
     if (!inRange) {
       return false;
     }
-    return squares[square.row][square.col] == null;
+    return squares[square.y][square.x] == null;
   }
 
   void addMino(Mino mino) {
     for (var square in mino.squares) {
-      squares[square.row][square.col] = square;
+      squares[square.y][square.x] = mino.color;
     }
   }
 
   void check(List<Square> newSquares) {
-    int newTopRow = config.row - 1;
-    for (int row = config.row - 1; row >= 0; row--) {
+    int newTopRow = 0;
+    for (int row = 0; row < config.row; row++) {
       bool isFull = true;
       for (int col = 0; col < config.col; col++) {
         if (squares[row][col] == null) {
@@ -82,11 +115,11 @@ class GameState extends ChangeNotifier {
       }
       if (!isFull) {
         squares[newTopRow] = squares[row];
-        newTopRow--;
+        newTopRow++;
       }
     }
 
-    for (int i = newTopRow - 1; i >= 0; i--) {
+    for (int i = newTopRow; i < config.row; i++) {
       squares[i] = List.filled(config.col, null);
     }
   }
@@ -100,69 +133,127 @@ class GameConfig {
 }
 
 class Square {
-  int row = 0;
-  int col = 0;
+  final int y;
+  final int x;
 
-  Square({
-    required this.row,
-    required this.col,
+  const Square({
+    required this.x,
+    required this.y,
   });
 }
 
-enum MinoType { I, O, S, Z, L, J, T }
+enum MinoType { I, L, J, O, S, T, Z }
+
+enum MinoState { up, right, down, left }
+
+class SquareImage {
+  final int color;
+
+  SquareImage(this.color);
+}
 
 class Mino {
-  final MinoType type;
-  final List<Square> squares;
+  static const minoSquares = [
+    [
+      [Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 2, y: 2), Square(x: 3, y: 2)], // I up
+      [Square(x: 2, y: 0), Square(x: 2, y: 1), Square(x: 2, y: 2), Square(x: 2, y: 3)], // I right
+      [Square(x: 0, y: 1), Square(x: 1, y: 1), Square(x: 2, y: 1), Square(x: 3, y: 1)], // I down
+      [Square(x: 1, y: 0), Square(x: 1, y: 1), Square(x: 1, y: 2), Square(x: 1, y: 3)], // I left
+    ],
+    [
+      [Square(x: 0, y: 3), Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 2, y: 2)], // L up
+      [Square(x: 1, y: 1), Square(x: 1, y: 2), Square(x: 1, y: 3), Square(x: 2, y: 3)], // L right
+      [Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 2, y: 2), Square(x: 2, y: 1)], // L down
+      [Square(x: 0, y: 1), Square(x: 1, y: 1), Square(x: 1, y: 2), Square(x: 1, y: 3)], // L left
+    ],
+    [
+      [Square(x: 0, y: 3), Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 2, y: 2)], // J up
+      [Square(x: 1, y: 1), Square(x: 1, y: 2), Square(x: 1, y: 3), Square(x: 2, y: 3)], // J right
+      [Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 2, y: 2), Square(x: 2, y: 1)], // J down
+      [Square(x: 0, y: 1), Square(x: 1, y: 1), Square(x: 1, y: 2), Square(x: 1, y: 3)], // J left
+    ],
+    [
+      [Square(x: 1, y: 2), Square(x: 1, y: 3), Square(x: 2, y: 2), Square(x: 2, y: 3)], // O up
+      [Square(x: 1, y: 2), Square(x: 1, y: 3), Square(x: 2, y: 2), Square(x: 2, y: 3)], // O right
+      [Square(x: 1, y: 2), Square(x: 1, y: 3), Square(x: 2, y: 2), Square(x: 2, y: 3)], // O down
+      [Square(x: 1, y: 2), Square(x: 1, y: 3), Square(x: 2, y: 2), Square(x: 2, y: 3)], // O left
+    ],
+    [
+      [Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 1, y: 3), Square(x: 2, y: 3)], // S up
+      [Square(x: 1, y: 3), Square(x: 1, y: 2), Square(x: 2, y: 2), Square(x: 2, y: 1)], // S right
+      [Square(x: 0, y: 1), Square(x: 1, y: 1), Square(x: 1, y: 2), Square(x: 2, y: 2)], // S down
+      [Square(x: 0, y: 3), Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 1, y: 1)], // S left
+    ],
+    [
+      [Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 2, y: 2), Square(x: 1, y: 3)], // T up
+      [Square(x: 1, y: 1), Square(x: 1, y: 2), Square(x: 1, y: 3), Square(x: 2, y: 2)], // T right
+      [Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 2, y: 2), Square(x: 1, y: 1)], // T down
+      [Square(x: 1, y: 1), Square(x: 1, y: 2), Square(x: 1, y: 3), Square(x: 0, y: 2)], // T left
+    ],
+    [
+      [Square(x: 0, y: 3), Square(x: 1, y: 3), Square(x: 1, y: 2), Square(x: 2, y: 2)], // Z up
+      [Square(x: 1, y: 1), Square(x: 1, y: 2), Square(x: 2, y: 2), Square(x: 2, y: 3)], // Z right
+      [Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 1, y: 1), Square(x: 2, y: 1)], // Z down
+      [Square(x: 0, y: 1), Square(x: 0, y: 2), Square(x: 1, y: 2), Square(x: 1, y: 3)], // Z left
+    ],
+  ];
 
-  factory Mino.random() {
+  static List<Color> colors = [
+    const Color(0x902DFFFE),
+    const Color(0x900B24F8),
+    const Color(0x90FDA929),
+    const Color(0x90FBF993),
+    const Color(0x902AF82D),
+    const Color(0x909E26F9),
+    const Color(0x90FC0B1D),
+  ];
+
+  final MinoType type;
+  MinoState state;
+  int x;
+  int y;
+
+  factory Mino.random(int x, int y) {
     int rand = Random().nextInt(MinoType.values.length);
     MinoType type = MinoType.values[rand];
-    List<Square> squares;
-    switch (type) {
-      case MinoType.I:
-        squares = [Square(row: 0, col: 0), Square(row: 0, col: 1), Square(row: 0, col: 2), Square(row: 0, col: 3)];
-        break;
-      case MinoType.J:
-        squares = [Square(row: 0, col: 2), Square(row: 1, col: 0), Square(row: 1, col: 1), Square(row: 1, col: 2)];
-        break;
-      case MinoType.L:
-        squares = [Square(row: 0, col: 0), Square(row: 1, col: 0), Square(row: 1, col: 1), Square(row: 1, col: 2)];
-        break;
-      case MinoType.O:
-        squares = [Square(row: 0, col: 0), Square(row: 0, col: 1), Square(row: 1, col: 0), Square(row: 1, col: 1)];
-        break;
-      case MinoType.S:
-        squares = [Square(row: 0, col: 1), Square(row: 0, col: 2), Square(row: 1, col: 0), Square(row: 1, col: 1)];
-        break;
-      case MinoType.T:
-        squares = [Square(row: 0, col: 1), Square(row: 1, col: 0), Square(row: 1, col: 1), Square(row: 1, col: 2)];
-        break;
-      case MinoType.Z:
-        squares = [Square(row: 0, col: 0), Square(row: 0, col: 1), Square(row: 1, col: 1), Square(row: 1, col: 2)];
-    }
-    return Mino(type, squares);
+    return Mino(type, MinoState.up, x, y);
   }
 
-  Mino(this.type, this.squares);
+  Mino(this.type, this.state, this.x, this.y);
 
-  Mino left() {
-    return Mino(type, moveDelta(0, -1));
+  Mino clone() => Mino(type, state, x, y);
+
+  SquareImage get color => SquareImage(colors[type.index].value);
+
+  List<Square> get squares {
+    List<Square> squares = minoSquares[type.index][state.index];
+    return squares.map((e) => Square(x: e.x + x, y: e.y + y)).toList();
   }
 
-  Mino down() {
-    return Mino(type, moveDelta(1, 0));
+  void left() {
+    x--;
   }
 
-  Mino right() {
-    return Mino(type, moveDelta(0, 1));
+  void down() {
+    y--;
   }
 
-  Mino up() {
-    return Mino(type, moveDelta(-1, 0));
+  void right() {
+    x++;
   }
 
-  List<Square> moveDelta(int deltaRow, int deltaCol) {
-    return squares.map((e) => Square(row: e.row + deltaRow, col: e.col + deltaCol)).toList();
+  void moveDelta(int dx, int dy) {
+    x += dx;
+    y += dy;
+  }
+
+  void rotateRight() {
+    int newIndex = (state.index + 1) % MinoState.values.length;
+    state = MinoState.values[newIndex];
+  }
+
+  void rotateLeft() {
+    int newIndex = (state.index - 1) % MinoState.values.length;
+    state = MinoState.values[newIndex];
   }
 }

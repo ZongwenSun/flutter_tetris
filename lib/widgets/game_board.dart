@@ -82,11 +82,13 @@ class BoardPainter extends CustomPainter {
       ..color = Colors.blue
       ..style = PaintingStyle.fill;
 
-    for (int row = 0; row < gameState.squares.length; row++) {
-      for (int col = 0; col < gameState.squares[row].length; col++) {
-        if (gameState.squares[row][col] != null) {
+    for (int row = 0; row < this.row; row++) {
+      for (int col = 0; col < this.col; col++) {
+        SquareImage? squareImage = gameState.squares[row][col];
+        if (squareImage != null) {
           double left = col * (squareSize + lineWidth);
-          double top = row * (squareSize + lineWidth);
+          double top = (this.row - 1 - row) * (squareSize + lineWidth);
+          squarePaint.color = Color(squareImage.color);
           canvas.drawRect(Rect.fromLTWH(left, top, squareSize, squareSize), squarePaint);
         }
       }
@@ -95,10 +97,9 @@ class BoardPainter extends CustomPainter {
     if (gameState.currentMino != null) {
       Mino mino = gameState.currentMino!;
       for (Square square in mino.squares) {
-        int row = square.row;
-        int col = square.col;
-        double left = col * (squareSize + lineWidth);
-        double top = row * (squareSize + lineWidth);
+        double left = square.x * (squareSize + lineWidth);
+        double top = (row - 1 - square.y) * (squareSize + lineWidth);
+        squarePaint.color = Color(mino.color.color);
         canvas.drawRect(Rect.fromLTWH(left, top, squareSize, squareSize), squarePaint);
       }
     }

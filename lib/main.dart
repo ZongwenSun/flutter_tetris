@@ -27,6 +27,10 @@ class MyApp extends StatelessWidget {
                   gameState.onPressLeft();
                 } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
                   gameState.onPressRight();
+                } else if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
+                  gameState.rotateLeft();
+                } else if (event.isKeyPressed(LogicalKeyboardKey.space)) {
+                  gameState.dropDown();
                 }
               },
               child: Center(

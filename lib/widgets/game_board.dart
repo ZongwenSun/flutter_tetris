@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tetris/models/game_state.dart';
 
+import '../models/mino.dart';
+
 class GameBoard extends StatefulWidget {
   final GameState gameState;
   final double borderWith = 4;

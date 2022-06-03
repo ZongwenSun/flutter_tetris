@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_tetris/models/game_ticker.dart';
 
 import 'mino.dart';
+import 'wall_kick.dart';
 
 class GameConfig {
   final int row;
@@ -11,9 +13,18 @@ class GameConfig {
   GameConfig({required this.row, required this.col});
 }
 
+enum PlayState {
+  init,
+  started,
+  paused,
+  finished,
+}
+
 class GameState extends ChangeNotifier {
   GameConfig config;
+  PlayState state = PlayState.init;
   late List<List<SquareImage?>> squares;
+  late GameTicker gameTicker;
 
   Mino? currentMino;
 
@@ -21,32 +32,63 @@ class GameState extends ChangeNotifier {
   late int bornY;
 
   GameState(this.config) {
-    squares = List.generate(config.row, (index) => List.filled(config.col, null));
-
     bornX = config.col ~/ 2 - 2;
     bornY = config.row - 4;
-    currentMino = Mino.random(bornX, bornY);
-    start();
+
+    gameTicker = GameTicker(const Duration(milliseconds: 1000), ((ticker, passedTime) => onTick(passedTime)));
+
+    reset();
   }
 
-  void start() {
-    Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (currentMino != null) {
-        Mino downMino = currentMino!.clone()..down();
-        if (allowMino(downMino)) {
-          currentMino = downMino;
+  void reset() {
+    squares = List.generate(config.row, (index) => List.filled(config.col, null));
+    gameTicker.reset();
+    state = PlayState.init;
+  }
+
+  void startOrContinue() {
+    assert(state == PlayState.init || state == PlayState.paused || state == PlayState.finished);
+    if (state == PlayState.finished) {
+      reset();
+    }
+    if (state == PlayState.init) {
+      currentMino = Mino.random(bornX, bornY);
+      gameTicker.start();
+    } else if (state == PlayState.paused) {
+      gameTicker.start();
+    }
+    state = PlayState.started;
+    notifyListeners();
+  }
+
+  void pause() {
+    gameTicker.pause();
+    state = PlayState.paused;
+    notifyListeners();
+  }
+
+  void _gameOver() {
+    gameTicker.reset();
+    state = PlayState.finished;
+  }
+
+  void onTick(Duration passedTime) {
+    if (currentMino != null) {
+      Mino downMino = currentMino!.clone()..down();
+      if (allowMino(downMino)) {
+        currentMino = downMino;
+      } else {
+        if (allowMino(currentMino!)) {
+          addMino(currentMino!);
+          check(currentMino!.squares);
+          currentMino = Mino.random(bornX, bornY);
         } else {
-          if (allowMino(currentMino!)) {
-            addMino(currentMino!);
-            check(currentMino!.squares);
-            currentMino = Mino.random(bornX, bornY);
-          } else {
-            currentMino = null;
-          }
+          currentMino = null;
+          _gameOver();
         }
       }
-      notifyListeners();
-    });
+    }
+    notifyListeners();
   }
 
   void onPressLeft() {
@@ -139,63 +181,6 @@ class GameState extends ChangeNotifier {
 
     for (int i = newTopRow; i < config.row; i++) {
       squares[i] = List.filled(config.col, null);
-    }
-  }
-}
-
-class KickOffset {
-  final int dx;
-  final int dy;
-
-  KickOffset(this.dx, this.dy);
-}
-
-class WallKickData {
-  static List<List<KickOffset>> rightRotationForMiniI = [
-    [KickOffset(0, 0), KickOffset(-2, 0), KickOffset(1, 0), KickOffset(-2, -1), KickOffset(1, 2)], // up->right
-    [KickOffset(0, 0), KickOffset(-1, 0), KickOffset(2, 0), KickOffset(-1, 2), KickOffset(2, -1)], //right->down
-    [KickOffset(0, 0), KickOffset(2, 0), KickOffset(-1, 0), KickOffset(2, 1), KickOffset(-1, -2)], // down->left
-    [KickOffset(0, 0), KickOffset(1, 0), KickOffset(-2, 0), KickOffset(1, -2), KickOffset(-2, 1)], //left->up
-  ];
-
-  static List<List<KickOffset>> leftRotationForMiniI = [
-    [KickOffset(0, 0), KickOffset(-1, 0), KickOffset(2, 0), KickOffset(-1, 2), KickOffset(2, -1)], // up->left
-    [KickOffset(0, 0), KickOffset(2, 0), KickOffset(-1, 0), KickOffset(2, 1), KickOffset(-1, -2)], // right->up
-    [KickOffset(0, 0), KickOffset(1, 0), KickOffset(-2, 0), KickOffset(1, -2), KickOffset(-2, 1)], // down->right
-    [KickOffset(0, 0), KickOffset(-2, 0), KickOffset(1, 0), KickOffset(-2, -1), KickOffset(1, 2)], // left->down
-  ];
-
-  static List<List<KickOffset>> rightRotatioinForOtherMini = [
-    [KickOffset(0, 0), KickOffset(-1, 0), KickOffset(-1, 1), KickOffset(0, -2), KickOffset(-1, -2)], // up->right
-    [KickOffset(0, 0), KickOffset(1, 0), KickOffset(1, -1), KickOffset(0, 2), KickOffset(1, 2)], //right->down
-    [KickOffset(0, 0), KickOffset(1, 0), KickOffset(1, 1), KickOffset(0, -2), KickOffset(1, -2)], // down->left
-    [KickOffset(0, 0), KickOffset(-1, 0), KickOffset(-1, -1), KickOffset(0, 2), KickOffset(-1, 2)], //left->up
-  ];
-
-  static List<List<KickOffset>> leftRotatioinForOtherMini = [
-    [KickOffset(0, 0), KickOffset(1, 0), KickOffset(1, 1), KickOffset(0, -2), KickOffset(1, -2)], // up->left
-    [KickOffset(0, 0), KickOffset(1, 0), KickOffset(1, -1), KickOffset(0, 2), KickOffset(1, 2)], // right->up
-    [KickOffset(0, 0), KickOffset(-1, 0), KickOffset(-1, 1), KickOffset(0, -2), KickOffset(-1, -2)], // down->right
-    [KickOffset(0, 0), KickOffset(-1, 0), KickOffset(-1, -1), KickOffset(0, 2), KickOffset(-1, 2)], // left->down
-  ];
-
-  static List<KickOffset> getRightRotationWallKickOffsets(MinoType type, MinoState state) {
-    if (type == MinoType.I) {
-      return rightRotationForMiniI[state.index];
-    } else if (type == MinoType.O) {
-      return [];
-    } else {
-      return rightRotatioinForOtherMini[state.index];
-    }
-  }
-
-  static List<KickOffset> getLeftRotationWallKickOffsets(MinoType type, MinoState state) {
-    if (type == MinoType.I) {
-      return leftRotationForMiniI[state.index];
-    } else if (type == MinoType.O) {
-      return [];
-    } else {
-      return leftRotatioinForOtherMini[state.index];
     }
   }
 }

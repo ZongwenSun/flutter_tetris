@@ -8,6 +8,27 @@ void main() {
   runApp(const MyApp());
 }
 
+class GameControllerBtn extends StatelessWidget {
+  final GameState gameState;
+  GameControllerBtn({Key? key, required this.gameState}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    bool playing = gameState.state == PlayState.started;
+
+    return IconButton(
+      onPressed: () {
+        if (playing) {
+          gameState.pause();
+        } else {
+          gameState.startOrContinue();
+        }
+      },
+      icon: Icon(playing ? Icons.pause : Icons.start),
+    );
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
@@ -33,15 +54,22 @@ class MyApp extends StatelessWidget {
                   gameState.dropDown();
                 }
               },
-              child: Center(
-                child: GameBoard(
-                  gameState: gameState,
-                ),
+              child: Row(
+                children: [
+                  GameBoard(
+                    gameState: gameState,
+                  ),
+                  GameControllerBtn(
+                    gameState: gameState,
+                  )
+                ],
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.max,
               ),
             ),
           ),
         ),
-        // body: Center(child: Text('hello')),
       ),
     );
   }
